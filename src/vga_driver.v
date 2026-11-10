@@ -102,7 +102,7 @@ module tt_um_gabpedroza_vga_racing_game (
     wire       video_active;
     wire [9:0] pix_x;          // the pixel being drawn now: 0 to 639 across
     wire [9:0] pix_y;          // and 0 to 479 down
-    reg  [$bits(ui_in) - 1:0] last_input;
+    reg  [BOARD_SIZE - 1:0] last_input;
     reg [BOARD_BITS:0] decoded_press;
     reg first_press;
 
@@ -125,9 +125,25 @@ module tt_um_gabpedroza_vga_racing_game (
     wire boost       = ui_in[2] & ~ui_in[3];
     wire back        = ui_in[3] & ~ui_in[2];
     reg select;
-
+    reg [19:0] switch_counter;
+    reg [3:0] fake_ui_in;
+    reg [3:0] old_ui_in;
     always @(posedge clk) begin
-        select <= ui_in[4] & ~ select;
+        if (~rst_n) begin
+            switch_counter <= 0;
+            fake_ui_in <= 0;
+            old_ui_in <= 0;
+        end
+        else if (switch_counter == 20'hfffff) begin
+            switch_counter <= 0;
+            fake_ui_in <= old_ui_in;
+        end
+        else if (ui_in[3:0] == old_ui_in) begin
+            switch_counter <= switch_counter + 20'd1;
+        end else begin
+            switch_counter <= 0;
+            old_ui_in <= ui_in[3:0];
+        end
     end
 
     // High for one clock as each frame ends. The game moves on once per frame.
@@ -196,7 +212,7 @@ module tt_um_gabpedroza_vga_racing_game (
             traffic1_y  <= 10'd240;
             score       <= 10'd0;
             scroll      <= 10'd0;
-            crash_timer <= 6'd0;
+            crash_timer <= 7'd0;
             first_press <= 0;
             counter <= 0;
             random      <= 16'hACE1;
@@ -205,17 +221,17 @@ module tt_um_gabpedroza_vga_racing_game (
                 q_markov[counter] <= random[BOARD_BITS-1:0];
             end
             if (new_frame) begin
-                last_input <= ui_in;
-                if((last_input != ui_in) & ((last_input | ui_in) == ui_in))begin // different from last and no buttons turned off => at least one turned on
+                last_input <= fake_ui_in;
+                if((last_input != fake_ui_in) & ((last_input | fake_ui_in) == fake_ui_in))begin // different from last and no buttons turned off => at least one turned on
                     first_press <= 1;
-                    if     ((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
-                    else if((ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
+                    if     ((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
+                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
                     
                 end else decoded_press <= {1'b0, decoded_press[BOARD_BITS-1:0]};
                 
@@ -329,7 +345,7 @@ module tt_um_gabpedroza_vga_racing_game (
     end
 
     // The crash flash: for four frames in every eight, full red with green and blue halved.
-    wire       flash  = (crash_timer != 6'd0) & crash_timer[3] & (bird_choice == last_pressed[1]);
+    wire       flash  = (crash_timer != 7'd0) & crash_timer[3] & (bird_choice == last_pressed[1]);
     wire [5:0] shown  = flash ? {2'b11, colour[3:2] >> 1, colour[1:0] >> 1} : colour;
 
     // ---- to the pins, in the order the TinyVGA adapter expects. Leave as it is.
