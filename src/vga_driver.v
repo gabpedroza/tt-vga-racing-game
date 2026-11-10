@@ -120,11 +120,6 @@ module tt_um_gabpedroza_vga_racing_game (
         .vpos(pix_y)
     );
 
-    wire steer_left  = ui_in[0] & ~ui_in[1];
-    wire steer_right = ui_in[1] & ~ui_in[0];
-    wire boost       = ui_in[2] & ~ui_in[3];
-    wire back        = ui_in[3] & ~ui_in[2];
-    reg select;
     reg [19:0] switch_counter;
     reg [3:0] fake_ui_in;
     reg [3:0] old_ui_in;
@@ -161,64 +156,31 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [9:0] bird_x = 320;
     reg [9:0] bird_y = 0;
 
-    reg [9:0] car_x;               // left edge of the car
-    reg [9:0] car_y;               // left edge of the car
-    reg [9:0] traffic0_x;          // top left corner of each of the two vehicles
-    reg [9:0] traffic0_y;
-    reg [9:0] traffic1_x;
-    reg [9:0] traffic1_y;
     reg [9:0] score;               // frames survived this run, up to 1023
-    reg [9:0] scroll;              // how far the road has moved, for the stripes
     reg [6:0] crash_timer;         // frames of flash left after a crash, 0 when driving
-    reg [15:0] random;             // shifts every clock, so its value looks random
+    reg [4:0] random;             // shifts every clock, so its value looks random
 
     // The level goes up by one every 64 frames, and each level is one pixel faster.
-    wire [3:0] level = score[9:6];
-    wire [4:0] speed = BASE_SPEED + {1'b0, level} + (boost ? BOOST_SPEED : 5'd0);
-
-    // The furthest left and right the car can go and still be on the road.
-    localparam [9:0] CAR_MIN = LANE_L;
-    localparam [9:0] CAR_MAX = LANE_R - CAR_W;
-
-    // Where a vehicle joins the road: somewhere across the lane, 256 places.
-    wire [9:0] random_x0 = LANE_L + {2'b00, random[7:0]};
-    wire [9:0] random_x1 = LANE_L + {2'b00, random[15:8]};
 
     // A crash is the car's rectangle overlapping a vehicle's rectangle.
-    wire hit0 = (car_x < traffic0_x + TRAFFIC_W) & (traffic0_x < car_x + CAR_W) &
-                (CAR_Y < traffic0_y + TRAFFIC_H) & (traffic0_y < CAR_Y + CAR_H);
-    wire hit1 = (car_x < traffic1_x + TRAFFIC_W) & (traffic1_x < car_x + CAR_W) &
-                (CAR_Y < traffic1_y + TRAFFIC_H) & (traffic1_y < CAR_Y + CAR_H);
-    wire crash = hit0 | hit1;
+
 
     // How far each vehicle moves this frame. The second is one pixel faster,
-    // so the two do not stay in step.
-    wire [9:0] step0 = {5'd0, speed};
-    wire [9:0] step1 = {5'd0, speed} + 10'd1;
 
-    reg [$clog2(BOARD_SIZE*BOARD_SIZE)-1:0] counter;
 
     always @(posedge clk) begin
-        random  <= {random[14:0], random[15] ^ random[13] ^ random[12] ^ random[10]};
-        counter <= (counter >= (BOARD_SIZE*BOARD_SIZE))? 0 : counter + 1;
+        random  <= {random[3:0], random[4] ^ random[2]};
         vsync_q <= vsync;
 
         if (~rst_n) begin
-            car_x       <= CAR_START;
-            car_y       <= CAR_Y;
-            traffic0_x  <= 10'd240;
-            traffic0_y  <= 10'd0;
-            traffic1_x  <= 10'd360;
-            traffic1_y  <= 10'd240;
             score       <= 10'd0;
-            scroll      <= 10'd0;
             crash_timer <= 7'd0;
             first_press <= 0;
-            counter <= 0;
-            random      <= 16'hACE1;
+            random      <= 5'b00001;
         end else begin
             if (~ first_press) begin
-                q_markov[counter] <= random[BOARD_BITS-1:0];
+                q_markov[random[3:0]] <= random[1:0];
+                q_markov[0] <= random[1:0];
             end
             if (new_frame) begin
                 last_input <= fake_ui_in;
@@ -295,31 +257,16 @@ module tt_um_gabpedroza_vga_racing_game (
     //wire in_bird_beak = 
     // The road, its striped kerbs and its dashed centre line. Adding scroll to
     // pix_y is what makes the stripes move down the screen.
-    wire [9:0] moving_y = pix_y + scroll;
-    wire in_road        = (pix_x >= ROAD_L) & (pix_x < ROAD_R);
-    wire in_kerb        = in_road & ((pix_x < LANE_L) | (pix_x >= LANE_R));
-    wire kerb_stripe    = moving_y[4];
-    wire in_centre_line = (pix_x >= 10'd318) & (pix_x < 10'd322) & moving_y[5];
+
     wire grass_square   = pix_x[GRASS_BIT] ^ pix_y[GRASS_BIT];
 
     // The car, with a window and four wheels.
-    wire in_car    = (pix_x >= car_x) & (pix_x < car_x + CAR_W) &
-                     (pix_y >= car_y) & (pix_y < car_y + CAR_H);
-    wire in_window = 0;
-    wire in_wheel  = 0;
 
     // The two vehicles, each with a darker strip six pixels deep along the top.
-    wire in_traffic0 = (pix_x >= traffic0_x) & (pix_x < traffic0_x + TRAFFIC_W) &
-                       (pix_y >= traffic0_y) & (pix_y < traffic0_y + TRAFFIC_H);
-    wire in_traffic1 = (pix_x >= traffic1_x) & (pix_x < traffic1_x + TRAFFIC_W) &
-                       (pix_y >= traffic1_y) & (pix_y < traffic1_y + TRAFFIC_H);
-    wire in_traffic  = in_traffic0 | in_traffic1;
-    wire in_shade    = (in_traffic0 & (pix_y - traffic0_y < 10'd6)) |
-                       (in_traffic1 & (pix_y - traffic1_y < 10'd6));
+
 
     // The score bar: one pixel longer for every two frames survived.
-    wire in_score = (pix_y >= 10'd8) & (pix_y < 10'd18) &
-                    (pix_x >= 10'd8) & (pix_x < 10'd8 + {1'b0, score[9:1]});
+
 
     // The first line that matches wins, so anything higher up is drawn on top
     // of anything lower down. Move a line to change what covers what.
