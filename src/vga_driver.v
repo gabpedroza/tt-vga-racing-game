@@ -35,7 +35,7 @@ module tt_um_gabpedroza_vga_racing_game (
     //    Change these freely. Nothing below needs editing when you do.
     // ========================================================================
     localparam BOARD_SIZE = 4;
-    localparam [9:0] WORM_BOX_SIZE = 10'($floor(640/BOARD_SIZE));
+    localparam [9:0] WORM_BOX_SIZE = 10'((640/BOARD_SIZE));
     localparam [9:0] WORM_BOX_BORDER = 10'(16);
     localparam [9:0] WORM_BOX_Y_CENTRE = 10'(WORM_BOX_SIZE/2 + WORM_BOX_BORDER);
     localparam BOARD_BITS = $clog2(BOARD_SIZE);
