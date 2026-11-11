@@ -111,7 +111,7 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [BOARD_BITS-1:0] last_pressed1;
     reg last_pressed0;
     reg [BOARD_BITS-1:0] bird_choice;
-
+    reg [1:0] life;
 
     hvsync_generator hvsync_gen (
         .clk(clk),
@@ -166,6 +166,7 @@ module tt_um_gabpedroza_vga_racing_game (
             random      <= 5'b00001;
             bird_x <= 3'd4;
             bird_y <= 0;
+            life <= 0;
             last_input <= 4'd0;
             decoded_press <= 3'd0;
             q_markov[0] <= 2'd0;
@@ -218,6 +219,7 @@ module tt_um_gabpedroza_vga_racing_game (
                     last_pressed0 <= last_pressed1[0];
                     q_markov[{last_pressed0, last_pressed1}] <= decoded_press[BOARD_BITS-1:0];
                     bird_choice <= q_markov[{last_pressed0, last_pressed1}];
+                    if (q_markov[{last_pressed0, last_pressed1}] == decoded_press[BOARD_BITS-1:0]) life <= life + 2'd1;
                     crash_timer <= 6'b111111;
                     bird_y <= 1;
                     bird_x <= {1'b0, q_markov[{last_pressed0, last_pressed1}]};
@@ -303,7 +305,7 @@ module tt_um_gabpedroza_vga_racing_game (
         //else if (in_kerb)        colour = kerb_stripe ? KERB_COLOUR_A : KERB_COLOUR_B;
         //else if (in_centre_line) colour = LINE_COLOUR;
         //else if (in_road)        colour = ROAD_COLOUR;
-        else                     colour = (in_grass)? GRASS_COLOUR_A : GRASS_COLOUR_B;
+        else                     colour = (in_grass)? {2'b00, life, 2'b00} : GRASS_COLOUR_A;
     end
 
     // The crash flash: for four frames in every eight, full red with green and blue halved.
