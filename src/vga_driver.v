@@ -35,22 +35,22 @@ module tt_um_gabpedroza_vga_racing_game (
     //    Change these freely. Nothing below needs editing when you do.
     // ========================================================================
     localparam BOARD_SIZE = 4;
-    localparam [9:0] WORM_BOX_SIZE = 10'((640/BOARD_SIZE));
-    localparam [9:0] WORM_BOX_BORDER = 10'(16);
-    localparam [9:0] WORM_BOX_Y_CENTRE = 10'(WORM_BOX_SIZE/2 + WORM_BOX_BORDER);
+    localparam [5:0] WORM_BOX_SIZE = 10'((40/BOARD_SIZE));
+    localparam [5:0] WORM_BOX_BORDER = 10'(1);
+    localparam [5:0] WORM_BOX_Y_CENTRE = 10'(WORM_BOX_SIZE/2 + WORM_BOX_BORDER);
     localparam BOARD_BITS = $clog2(BOARD_SIZE);
     localparam [5:0] HOLE_COLOUR = 6'b100100;
-    localparam [9:0] BIRD_HEAD_SIZE = 10'd150;
-    localparam [9:0] BIRD_BEAK_SIZE = 10'd64;
-    localparam [9:0] BIRD_BEAK_LENGTH = 10'd70;
+    localparam [5:0] BIRD_HEAD_SIZE = 10'd10;
+    localparam [5:0] BIRD_BEAK_SIZE = 10'd4;
+    localparam [5:0] BIRD_BEAK_LENGTH = 10'd4;
     localparam [5:0] BIRD_COLOUR = 6'b111000;
     localparam [5:0] BIRD_BEAK_COLOUR = 6'b110100;
     localparam [5:0] WORM_COLOUR = 6'b110101;
     localparam [5:0] WORM_NECK_COLOUR = 6'b110000; 
-    localparam [9:0] WORM_SIZE = 10'(WORM_BOX_SIZE/6);
-    localparam [9:0] WORM_LENGTH = 10'(WORM_BOX_SIZE/2 + BIRD_BEAK_LENGTH + 48);
-    localparam [9:0] WORM_HEAD_SIZE = 10'(48);
-    localparam [9:0] WORM_NECK_SIZE = 10'(32);
+    localparam [5:0] WORM_SIZE = 10'(WORM_BOX_SIZE/6);
+    localparam [5:0] WORM_LENGTH = 10'(WORM_BOX_SIZE/2 + BIRD_BEAK_LENGTH + 3);
+    localparam [5:0] WORM_HEAD_SIZE = 10'(3);
+    localparam [5:0] WORM_NECK_SIZE = 10'(2);
 
 
     // Colours. Six bits: two for red, two for green, two for blue (6'bRRGGBB).
@@ -101,7 +101,9 @@ module tt_um_gabpedroza_vga_racing_game (
     wire       vsync;
     wire       video_active;
     wire [9:0] pix_x;          // the pixel being drawn now: 0 to 639 across
+    wire [5:0] rpix_x = pix_x[9:4];
     wire [9:0] pix_y;          // and 0 to 479 down
+    wire [5:0] rpix_y = pix_y[9:4];
     reg  [BOARD_SIZE - 1:0] last_input;
     reg [BOARD_BITS:0] decoded_press;
     reg first_press;
@@ -125,18 +127,18 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [3:0] old_ui_in;
     always @(posedge clk) begin
         if (~rst_n) begin
-            switch_counter <= 0;
+            switch_counter <= 20'h00001;
             fake_ui_in <= 0;
             old_ui_in <= 0;
         end
-        else if (switch_counter == 20'hfffff) begin
-            switch_counter <= 0;
+        else if (switch_counter == 20'h80000) begin
+            switch_counter <= 20'h00001;
             fake_ui_in <= old_ui_in;
         end
         else if (ui_in[3:0] == old_ui_in) begin
-            switch_counter <= switch_counter + 20'd1;
+            switch_counter <= {switch_counter[18:0], switch_counter[19]^switch_counter[16]};
         end else begin
-            switch_counter <= 0;
+            switch_counter <= 20'h00001;
             old_ui_in <= ui_in[3:0];
         end
     end
@@ -153,8 +155,13 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [BOARD_BITS-1:0] q_markov [(BOARD_SIZE*BOARD_SIZE)-1:0];
 
     //wire [9:0] bird_x = 320;
-    reg [9:0] bird_x = 320;
-    reg [9:0] bird_y = 0;
+    reg [9:0] bird_x = 20;
+    reg bird_y = 0;
+    reg [9:0] actual_bird_y;
+    always @(*) begin
+        if (bird_y == 0) actual_bird_y = 0;
+        else actual_bird_y = 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE - BIRD_HEAD_SIZE/2;
+    end
 
     reg [9:0] score;               // frames survived this run, up to 1023
     reg [6:0] crash_timer;         // frames of flash left after a crash, 0 when driving
@@ -203,7 +210,7 @@ module tt_um_gabpedroza_vga_racing_game (
                     if (crash_timer == 7'd1) begin
                         score       <= 10'd0;
                         bird_y <= 0;
-                        bird_x <= 320;
+                        bird_x <= 20;
                     end
                 end else if (decoded_press[BOARD_BITS]) begin
                     last_pressed[1] <= decoded_press[BOARD_BITS-1:0];
@@ -215,7 +222,7 @@ module tt_um_gabpedroza_vga_racing_game (
                     end else begin
                         crash_timer <= CRASH_FRAMES;
                     end
-                    bird_y <= 480 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE - BIRD_HEAD_SIZE/2;
+                    bird_y <= 1;
                     bird_x <= WORM_BOX_SIZE*(2*q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]]+1)/2;
                 end else begin
                     last_pressed[1] <= last_pressed[1];
@@ -237,28 +244,28 @@ module tt_um_gabpedroza_vga_racing_game (
     genvar i;
     generate 
         for (i = 0; i < BOARD_SIZE; i = i + 1) begin : worm_box
-            assign is_in_a_hole[i] = (pix_x <= WORM_BOX_SIZE*(i+1) - WORM_BOX_BORDER) & (pix_x >= WORM_BOX_SIZE*i + WORM_BOX_BORDER);
-            assign is_in_worm[i] = (last_pressed[1] == i) & (WORM_BOX_SIZE*(2*i+1)/2 - WORM_SIZE/2 <= pix_x & pix_x <= WORM_BOX_SIZE*(2*i+1)/2 + WORM_SIZE/2);
+            assign is_in_a_hole[i] = (rpix_x <= WORM_BOX_SIZE*(i+1) - WORM_BOX_BORDER) & (rpix_x >= WORM_BOX_SIZE*i + WORM_BOX_BORDER);
+            assign is_in_worm[i] = (last_pressed[1] == i) & (WORM_BOX_SIZE*(2*i+1)/2 - WORM_SIZE/2 <= rpix_x & rpix_x <= WORM_BOX_SIZE*(2*i+1)/2 + WORM_SIZE/2);
         end
     endgenerate
-    wire in_worm_box = ((480 - WORM_BOX_SIZE + WORM_BOX_BORDER<= pix_y) & (480 - WORM_BOX_BORDER >= pix_y)) & (|is_in_a_hole);
-    wire in_worm = (480 - WORM_BOX_Y_CENTRE >= pix_y) & (pix_y >= 480 - WORM_BOX_Y_CENTRE - WORM_LENGTH)  & (|is_in_worm);
-    wire in_worm_neck = (480 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE + WORM_NECK_SIZE >= pix_y) & (pix_y >= 480 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE)  & (|is_in_worm);
+    wire in_worm_box = ((30 - WORM_BOX_SIZE + WORM_BOX_BORDER<= rpix_y) & (30 - WORM_BOX_BORDER >= rpix_y)) & (|is_in_a_hole); // no adder
+    wire in_worm = (30 - WORM_BOX_Y_CENTRE >= rpix_y) & (rpix_y >= 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH)  & (|is_in_worm); // no adder
+    wire in_worm_neck = 0;//(30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE + WORM_NECK_SIZE >= rpix_y) & (rpix_y >= 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE)  & (|is_in_worm); // no adder
 
-    wire in_bird_head = ((pix_y <= BIRD_HEAD_SIZE/2 + bird_y & pix_y + BIRD_HEAD_SIZE/2 >= bird_y) & (bird_x <= pix_x + BIRD_HEAD_SIZE/2 & pix_x <= bird_x + BIRD_HEAD_SIZE/2)) | ((pix_y <= bird_y) & (bird_x <= pix_x + BIRD_HEAD_SIZE/2 + 32 & pix_x <= bird_x + BIRD_HEAD_SIZE/2 + 32));
+    wire in_bird_head = ((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)); //| ((rpix_y <= actual_bird_y) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 + 2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2 + 2));
 
-    wire in_bird_white_eye = ((pix_y <= BIRD_HEAD_SIZE/2 + bird_y & pix_y >= bird_y + BIRD_HEAD_SIZE/2 - 16) & (bird_x <= pix_x + BIRD_HEAD_SIZE/2 & pix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 48 <= pix_x | pix_x <= bird_x - 48);
+    wire in_bird_white_eye = 0;//((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y & rpix_y >= actual_bird_y + BIRD_HEAD_SIZE/2 - 1) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 3 <= rpix_x | rpix_x <= bird_x - 3);
 
-    wire in_bird_black_eye = ((pix_y <= BIRD_HEAD_SIZE/2 + bird_y & pix_y >= bird_y + BIRD_HEAD_SIZE/2 - 16) & (bird_x <= pix_x + BIRD_HEAD_SIZE/2 & pix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 24 <= pix_x | pix_x <= bird_x - 24);
+    wire in_bird_black_eye = 0;//((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y & rpix_y >= actual_bird_y + BIRD_HEAD_SIZE/2 - 1) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 2 <= rpix_x | rpix_x <= bird_x - 2);
 
-    wire in_bird_beak = (pix_y >= bird_y + BIRD_HEAD_SIZE/2 & pix_y <= bird_y + BIRD_HEAD_SIZE/2 + BIRD_BEAK_LENGTH) &
-                        (pix_x >= bird_x - BIRD_BEAK_SIZE/2 & pix_x <= bird_x + BIRD_BEAK_SIZE/2);
+    wire in_bird_beak = (rpix_y <= actual_bird_y + BIRD_HEAD_SIZE/2 + BIRD_BEAK_LENGTH) &
+                        (rpix_x >= bird_x - BIRD_BEAK_SIZE/2 & rpix_x <= bird_x + BIRD_BEAK_SIZE/2);
 
     //wire in_bird_beak = 
     // The road, its striped kerbs and its dashed centre line. Adding scroll to
     // pix_y is what makes the stripes move down the screen.
 
-    wire grass_square   = pix_x[GRASS_BIT] ^ pix_y[GRASS_BIT];
+    wire grass_square   = rpix_x[0] ^ rpix_y[0];
 
     // The car, with a window and four wheels.
 
@@ -273,6 +280,7 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [5:0] colour;
     always @(*) begin
         if (~video_active)       colour = 6'b000000;
+        //colour = 6'b000000;
         else if (in_bird_white_eye) colour = 6'b111111;
         else if (in_bird_black_eye) colour = 6'b000000;
         else if (in_bird_head)   colour = BIRD_COLOUR;
