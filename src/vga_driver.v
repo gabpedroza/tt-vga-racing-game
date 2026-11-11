@@ -82,7 +82,7 @@ module tt_um_gabpedroza_vga_racing_game (
                                            // keep BASE_SPEED + BOOST_SPEED to 16 or less
 
     // How long the red flash lasts after a crash, in frames. 63 at most.
-    localparam [6:0] CRASH_FRAMES = 7'd70;
+    localparam [5:0] CRASH_FRAMES = 6'b111111;
 
     // The road. These numbers fit together, so change them as a set.
     localparam [9:0] ROAD_L    = 10'd160;  // outer edge of the left kerb
@@ -122,27 +122,6 @@ module tt_um_gabpedroza_vga_racing_game (
         .vpos(pix_y)
     );
 
-    reg [19:0] switch_counter;
-    reg [3:0] fake_ui_in;
-    reg [3:0] old_ui_in;
-    always @(posedge clk) begin
-        if (~rst_n) begin
-            switch_counter <= 20'h00001;
-            fake_ui_in <= 0;
-            old_ui_in <= 0;
-        end
-        else if (switch_counter == 20'h80000) begin
-            switch_counter <= 20'h00001;
-            fake_ui_in <= old_ui_in;
-        end
-        else if (ui_in[3:0] == old_ui_in) begin
-            switch_counter <= {switch_counter[18:0], switch_counter[19]^switch_counter[16]};
-        end else begin
-            switch_counter <= 20'h00001;
-            old_ui_in <= ui_in[3:0];
-        end
-    end
-
     // High for one clock as each frame ends. The game moves on once per frame.
     reg  vsync_q;
     wire new_frame = vsync & ~vsync_q;
@@ -155,7 +134,7 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [BOARD_BITS-1:0] q_markov [(BOARD_SIZE*BOARD_SIZE)-1:0];
 
     //wire [9:0] bird_x = 320;
-    reg [9:0] bird_x = 20;
+    reg [2:0] bird_x = 3'd4;
     reg bird_y = 0;
     reg [9:0] actual_bird_y;
     always @(*) begin
@@ -163,8 +142,8 @@ module tt_um_gabpedroza_vga_racing_game (
         else actual_bird_y = 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE - BIRD_HEAD_SIZE/2;
     end
 
-    reg [9:0] score;               // frames survived this run, up to 1023
-    reg [6:0] crash_timer;         // frames of flash left after a crash, 0 when driving
+    //reg [9:0] score;               // frames survived this run, up to 1023
+    reg [5:0] crash_timer;         // frames of flash left after a crash, 0 when driving
     reg [4:0] random;             // shifts every clock, so its value looks random
 
     // The level goes up by one every 64 frames, and each level is one pixel faster.
@@ -180,37 +159,58 @@ module tt_um_gabpedroza_vga_racing_game (
         vsync_q <= vsync;
 
         if (~rst_n) begin
-            score       <= 10'd0;
-            crash_timer <= 7'd0;
+            //score       <= 10'd0;
+            crash_timer <= 6'd0;
             first_press <= 0;
             random      <= 5'b00001;
+            bird_x <= 3'd4;
+            bird_y <= 0;
+            last_input <= 4'd0;
+            decoded_press <= 5'd0;
+            q_markov[0] <= 2'd0;
+            q_markov[1] <= 2'd0;
+            q_markov[2] <= 2'd0;
+            q_markov[3] <= 2'd0;
+            q_markov[4] <= 2'd0;
+            q_markov[5] <= 2'd0;
+            q_markov[6] <= 2'd0;
+            q_markov[7] <= 2'd0;
+            q_markov[8] <= 2'd0;
+            q_markov[9] <= 2'd0;
+            q_markov[10] <= 2'd0;
+            q_markov[11] <= 2'd0;
+            q_markov[12] <= 2'd0;
+            q_markov[13] <= 2'd0;
+            q_markov[14] <= 2'd0;
+            q_markov[15] <= 2'd0;
+
         end else begin
             if (~ first_press) begin
                 q_markov[random[3:0]] <= random[1:0];
                 q_markov[0] <= random[1:0];
             end
             if (new_frame) begin
-                last_input <= fake_ui_in;
-                if((last_input != fake_ui_in) & ((last_input | fake_ui_in) == fake_ui_in))begin // different from last and no buttons turned off => at least one turned on
+                last_input <= ui_in[3:0];
+                if((last_input != ui_in[3:0]) & ((last_input | ui_in[3:0]) == ui_in[3:0]))begin // different from last and no buttons turned off => at least one turned on
                     first_press <= 1;
-                    if     ((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
-                    else if((fake_ui_in[BOARD_SIZE-1:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
+                    if     ((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
+                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
                     
                 end else decoded_press <= {1'b0, decoded_press[BOARD_BITS-1:0]};
                 
-                if (crash_timer != 7'd0) begin
+                if (crash_timer != 6'd0) begin
                     // ---- after a crash: count the flash down, then start again
                     crash_timer <= crash_timer - 6'd1;
-                    if (crash_timer == 7'd1) begin
-                        score       <= 10'd0;
+                    if (crash_timer == 6'd1) begin
+                        //score       <= 10'd0;
                         bird_y <= 0;
-                        bird_x <= 20;
+                        bird_x <= 3'd4;
                     end
                 end else if (decoded_press[BOARD_BITS]) begin
                     last_pressed[1] <= decoded_press[BOARD_BITS-1:0];
@@ -218,12 +218,10 @@ module tt_um_gabpedroza_vga_racing_game (
                     q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]] <= decoded_press[BOARD_BITS-1:0];
                     bird_choice <= q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]];
                     if(q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]] == decoded_press[BOARD_BITS-1:0]) begin
-                        crash_timer <= CRASH_FRAMES+20;
-                    end else begin
                         crash_timer <= CRASH_FRAMES;
                     end
                     bird_y <= 1;
-                    bird_x <= WORM_BOX_SIZE*(2*q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]]+1)/2;
+                    bird_x <= q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]];;
                 end else begin
                     last_pressed[1] <= last_pressed[1];
                     last_pressed[0] <= last_pressed[0];
@@ -238,6 +236,16 @@ module tt_um_gabpedroza_vga_racing_game (
     // 4. DRAWING
     //    One question for each thing on screen: is this pixel inside it?
     // ========================================================================
+    // Bird's horizontal centre, in 16-pixel units.
+    // Values 0-3 select the four columns; 4 is the initial centre.
+    wire [5:0] bird_centre_x = (bird_x == 3'd4)
+                             ? 6'd20
+                             : bird_x * 6'd10 + 6'd5;
+
+    // Absolute horizontal distance from the bird's centre.
+    wire [5:0] bird_dx = (rpix_x >= bird_centre_x)
+                       ? rpix_x - bird_centre_x
+                       : bird_centre_x - rpix_x;
 
     wire [BOARD_SIZE-1:0] is_in_a_hole;
     wire [BOARD_SIZE-1:0] is_in_worm;
@@ -252,14 +260,14 @@ module tt_um_gabpedroza_vga_racing_game (
     wire in_worm = (30 - WORM_BOX_Y_CENTRE >= rpix_y) & (rpix_y >= 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH)  & (|is_in_worm); // no adder
     wire in_worm_neck = 0;//(30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE + WORM_NECK_SIZE >= rpix_y) & (rpix_y >= 30 - WORM_BOX_Y_CENTRE - WORM_LENGTH + WORM_HEAD_SIZE)  & (|is_in_worm); // no adder
 
-    wire in_bird_head = ((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)); //| ((rpix_y <= actual_bird_y) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 + 2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2 + 2));
+    wire in_bird_head = (rpix_y <= actual_bird_y + BIRD_HEAD_SIZE/2)
+                      & (bird_dx <= BIRD_HEAD_SIZE/2);
 
-    wire in_bird_white_eye = 0;//((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y & rpix_y >= actual_bird_y + BIRD_HEAD_SIZE/2 - 1) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 3 <= rpix_x | rpix_x <= bird_x - 3);
+    wire in_bird_white_eye = 0;
+    wire in_bird_black_eye = 0;
 
-    wire in_bird_black_eye = 0;//((rpix_y <= BIRD_HEAD_SIZE/2 + actual_bird_y & rpix_y >= actual_bird_y + BIRD_HEAD_SIZE/2 - 1) & (bird_x <= rpix_x + BIRD_HEAD_SIZE/2 & rpix_x <= bird_x + BIRD_HEAD_SIZE/2)) & (bird_x + 2 <= rpix_x | rpix_x <= bird_x - 2);
-
-    wire in_bird_beak = (rpix_y <= actual_bird_y + BIRD_HEAD_SIZE/2 + BIRD_BEAK_LENGTH) &
-                        (rpix_x >= bird_x - BIRD_BEAK_SIZE/2 & rpix_x <= bird_x + BIRD_BEAK_SIZE/2);
+    wire in_bird_beak = (rpix_y <= actual_bird_y + BIRD_HEAD_SIZE/2 + BIRD_BEAK_LENGTH)
+                      & (bird_dx <= BIRD_BEAK_SIZE/2);
 
     //wire in_bird_beak = 
     // The road, its striped kerbs and its dashed centre line. Adding scroll to
