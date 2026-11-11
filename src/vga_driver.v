@@ -11,7 +11,7 @@
  * as it grows. A crash flashes the screen red and starts the run again.
  *
  * How this file is laid out:
- *   1. SETTINGS   Colours, sizes and speeds. Change anything here and press Run.
+ *   1. SETTINGS   Colours, sizes and speeds. Change anything here and press Run
  *   2. WIRING     The pins and the sync generator. Leave this as it is.
  *   3. THE GAME   The rules: steering, traffic, crashes and the score.
  *   4. DRAWING    The colour of every pixel, from where things are.
@@ -108,7 +108,8 @@ module tt_um_gabpedroza_vga_racing_game (
     reg [BOARD_BITS:0] decoded_press;
     reg first_press;
 
-    reg [BOARD_BITS-1:0] last_pressed [1:0];
+    reg [BOARD_BITS-1:0] last_pressed1;
+    reg last_pressed0;
     reg [BOARD_BITS-1:0] bird_choice;
 
 
@@ -131,7 +132,7 @@ module tt_um_gabpedroza_vga_racing_game (
     //    A few registers hold where everything is. They change once per frame.
     // ========================================================================
 
-    reg [BOARD_BITS-1:0] q_markov [(BOARD_SIZE*BOARD_SIZE)-1:0];
+    reg [BOARD_BITS-1:0] q_markov [(BOARD_SIZE*2)-1:0];
 
     //wire [9:0] bird_x = 320;
     reg [2:0] bird_x = 3'd4;
@@ -160,13 +161,13 @@ module tt_um_gabpedroza_vga_racing_game (
 
         if (~rst_n) begin
             //score       <= 10'd0;
-            crash_timer <= 6'd0;
+            crash_timer <= 6'b000000;
             first_press <= 0;
             random      <= 5'b00001;
             bird_x <= 3'd4;
             bird_y <= 0;
             last_input <= 4'd0;
-            decoded_press <= 5'd0;
+            decoded_press <= 3'd0;
             q_markov[0] <= 2'd0;
             q_markov[1] <= 2'd0;
             q_markov[2] <= 2'd0;
@@ -175,57 +176,55 @@ module tt_um_gabpedroza_vga_racing_game (
             q_markov[5] <= 2'd0;
             q_markov[6] <= 2'd0;
             q_markov[7] <= 2'd0;
-            q_markov[8] <= 2'd0;
-            q_markov[9] <= 2'd0;
-            q_markov[10] <= 2'd0;
-            q_markov[11] <= 2'd0;
-            q_markov[12] <= 2'd0;
-            q_markov[13] <= 2'd0;
-            q_markov[14] <= 2'd0;
-            q_markov[15] <= 2'd0;
+            //q_markov[8] <= 2'd0;
+            //q_markov[9] <= 2'd0;
+            //q_markov[10] <= 2'd0;
+            //q_markov[11] <= 2'd0;
+            //q_markov[12] <= 2'd0;
+            //q_markov[13] <= 2'd0;
+            //q_markov[14] <= 2'd0;
+            //q_markov[15] <= 2'd0;
 
         end else begin
             if (~ first_press) begin
-                q_markov[random[3:0]] <= random[1:0];
-                q_markov[0] <= random[1:0];
+                q_markov[random[3:1]] <= random[1:0];
+                //q_markov[0] <= random[1:0];
             end
             if (new_frame) begin
                 last_input <= ui_in[3:0];
                 if((last_input != ui_in[3:0]) & ((last_input | ui_in[3:0]) == ui_in[3:0]))begin // different from last and no buttons turned off => at least one turned on
                     first_press <= 1;
-                    if     ((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
-                    else if((ui_in[3:0][BOARD_SIZE-1:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
+                    if     ((ui_in[3:0] == BOARD_SIZE'(1)) &   (BOARD_SIZE >= 1)) decoded_press <= {1'b1, BOARD_BITS'(0)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(2)) &   (BOARD_SIZE >= 2)) decoded_press <= {1'b1, BOARD_BITS'(1)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(4)) &   (BOARD_SIZE >= 3)) decoded_press <= {1'b1, BOARD_BITS'(2)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(8)) &   (BOARD_SIZE >= 4)) decoded_press <= {1'b1, BOARD_BITS'(3)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(16)) &  (BOARD_SIZE >= 5)) decoded_press <= {1'b1, BOARD_BITS'(4)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(32)) &  (BOARD_SIZE >= 6)) decoded_press <= {1'b1, BOARD_BITS'(5)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(64)) &  (BOARD_SIZE >= 7)) decoded_press <= {1'b1, BOARD_BITS'(6)};
+                    else if((ui_in[3:0] == BOARD_SIZE'(128)) & (BOARD_SIZE >= 8)) decoded_press <= {1'b1, BOARD_BITS'(7)};
                     
                 end else decoded_press <= {1'b0, decoded_press[BOARD_BITS-1:0]};
                 
-                if (crash_timer != 6'd0) begin
+                if (crash_timer != 6'b000000) begin
                     // ---- after a crash: count the flash down, then start again
                     crash_timer <= crash_timer - 6'd1;
-                    if (crash_timer == 6'd1) begin
+                    if (crash_timer == 6'b000001) begin
                         //score       <= 10'd0;
                         bird_y <= 0;
                         bird_x <= 3'd4;
                     end
                 end else if (decoded_press[BOARD_BITS]) begin
-                    last_pressed[1] <= decoded_press[BOARD_BITS-1:0];
-                    last_pressed[0] <= last_pressed[1];
-                    q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]] <= decoded_press[BOARD_BITS-1:0];
-                    bird_choice <= q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]];
-                    if(q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]] == decoded_press[BOARD_BITS-1:0]) begin
-                        crash_timer <= CRASH_FRAMES;
-                    end
+                    last_pressed1 <= decoded_press[BOARD_BITS-1:0];
+                    last_pressed0 <= last_pressed1[0];
+                    q_markov[{last_pressed0, last_pressed1}] <= decoded_press[BOARD_BITS-1:0];
+                    bird_choice <= q_markov[{last_pressed0, last_pressed1}];
+                    crash_timer <= 6'b111111;
                     bird_y <= 1;
-                    bird_x <= q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]];;
+                    bird_x <= {1'b0, q_markov[{last_pressed0, last_pressed1}]};
                 end else begin
-                    last_pressed[1] <= last_pressed[1];
-                    last_pressed[0] <= last_pressed[0];
-                    q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]] <= q_markov[last_pressed[0] + BOARD_SIZE*last_pressed[1]];
+                    last_pressed1 <= last_pressed1;
+                    last_pressed0 <= last_pressed0;
+                    q_markov[{last_pressed0, last_pressed1}] <= q_markov[{last_pressed0, last_pressed1}];
                     bird_choice <= bird_choice;
                 end
             end
@@ -253,7 +252,7 @@ module tt_um_gabpedroza_vga_racing_game (
     generate 
         for (i = 0; i < BOARD_SIZE; i = i + 1) begin : worm_box
             assign is_in_a_hole[i] = (rpix_x <= WORM_BOX_SIZE*(i+1) - WORM_BOX_BORDER) & (rpix_x >= WORM_BOX_SIZE*i + WORM_BOX_BORDER);
-            assign is_in_worm[i] = (last_pressed[1] == i) & (WORM_BOX_SIZE*(2*i+1)/2 - WORM_SIZE/2 <= rpix_x & rpix_x <= WORM_BOX_SIZE*(2*i+1)/2 + WORM_SIZE/2);
+            assign is_in_worm[i] = (last_pressed1 == i) & (WORM_BOX_SIZE*(2*i+1)/2 - WORM_SIZE/2 <= rpix_x & rpix_x <= WORM_BOX_SIZE*(2*i+1)/2 + WORM_SIZE/2);
         end
     endgenerate
     wire in_worm_box = ((30 - WORM_BOX_SIZE + WORM_BOX_BORDER<= rpix_y) & (30 - WORM_BOX_BORDER >= rpix_y)) & (|is_in_a_hole); // no adder
@@ -269,11 +268,11 @@ module tt_um_gabpedroza_vga_racing_game (
     wire in_bird_beak = (rpix_y <= actual_bird_y + BIRD_HEAD_SIZE/2 + BIRD_BEAK_LENGTH)
                       & (bird_dx <= BIRD_BEAK_SIZE/2);
 
+
+    wire in_grass = rpix_x[0]^rpix_y[0];
     //wire in_bird_beak = 
     // The road, its striped kerbs and its dashed centre line. Adding scroll to
     // pix_y is what makes the stripes move down the screen.
-
-    wire grass_square   = rpix_x[0] ^ rpix_y[0];
 
     // The car, with a window and four wheels.
 
@@ -293,8 +292,8 @@ module tt_um_gabpedroza_vga_racing_game (
         else if (in_bird_black_eye) colour = 6'b000000;
         else if (in_bird_head)   colour = BIRD_COLOUR;
         else if (in_bird_beak)   colour = BIRD_BEAK_COLOUR;
-        else if (in_worm_neck & (|crash_timer))   colour = WORM_NECK_COLOUR;
-        else if (in_worm & (|crash_timer))        colour = WORM_COLOUR;
+        else if (in_worm_neck & |crash_timer)   colour = WORM_NECK_COLOUR;
+        else if (in_worm & |crash_timer)        colour = WORM_COLOUR;
         else if (in_worm_box)    colour = HOLE_COLOUR;
         //else if (in_score)       colour = SCORE_COLOUR;
         //else if (in_wheel)       colour = WHEEL_COLOUR;
@@ -304,11 +303,11 @@ module tt_um_gabpedroza_vga_racing_game (
         //else if (in_kerb)        colour = kerb_stripe ? KERB_COLOUR_A : KERB_COLOUR_B;
         //else if (in_centre_line) colour = LINE_COLOUR;
         //else if (in_road)        colour = ROAD_COLOUR;
-        else                     colour = grass_square ? GRASS_COLOUR_A : GRASS_COLOUR_B;
+        else                     colour = (in_grass)? GRASS_COLOUR_A : GRASS_COLOUR_B;
     end
 
     // The crash flash: for four frames in every eight, full red with green and blue halved.
-    wire       flash  = (crash_timer != 7'd0) & crash_timer[3] & (bird_choice == last_pressed[1]);
+    wire       flash  = (crash_timer != 6'b000001) & crash_timer[3] & (bird_choice == last_pressed1);
     wire [5:0] shown  = flash ? {2'b11, colour[3:2] >> 1, colour[1:0] >> 1} : colour;
 
     // ---- to the pins, in the order the TinyVGA adapter expects. Leave as it is.
